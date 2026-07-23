@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>DERIVA — Compagno di pesca di Fabio Brogi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root{
+    --navy:#0A1626;
+    --panel:#0F2136;
+    --panel-2:#0C1B2C;
+    --line:#1E3448;
+    --sonar:#39FF9E;
+    --sonar-dim:#1C7A54;
+    --amber:#FFB238;
+    --coral:#FF7A38;
+    --deep:#5EA0C8;
+    --foam:#EAF2F4;
+    --steel:#6E8B9A;
+    --alert:#FF5A4E;
+    --radius:14px;
+    --font-display:'Space Grotesk',sans-serif;
+    --font-body:'Inter',sans-serif;
+    --font-mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;background:var(--navy);}
+  body{
+    font-family:var(--font-body);
+    color:var(--foam);
+    overscroll-behavior:none;
+    display:flex;
+    justify-content:center;
+  }
+  #app{
+    width:100%;
+    max-width:520px;
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse at top, rgba(57,255,158,0.05), transparent 55%),
+      var(--navy);
+    display:flex;
+    flex-direction:column;
+    position:relative;
+  }
+
+  /* ---------- Header ---------- */
+  .topbar{
+    padding:18px 18px 12px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    border-bottom:1px solid var(--line);
+  }
+  .brand-mark{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:20px;
+    letter-spacing:0.04em;
+    color:var(--foam);
+  }
+  .brand-mark span{color:var(--sonar);}
+  .brand-sub{
+    font-family:var(--font-mono);
+    font-size:10px;
+    color:var(--steel);
+    text-transform:uppercase;
+    letter-spacing:0.1em;
+    margin-top:2px;
+  }
+  .brand-sub b{color:var(--amber); font-weight:600;}
+  .port-pill{
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--steel);
+    border:1px solid var(--line);
+    padding:6px 10px;
+    border-radius:999px;
+    background:var(--panel-2);
+    white-space:nowrap;
+  }
+
+  /* ---------- Screens ---------- */
+  .screen{display:none; flex:1; flex-direction:column; padding-bottom:90px;}
+  .screen.active{display:flex;}
+
+  /* ---------- Welcome banner ---------- */
+  .welcome-banner{
+    margin:14px 18px 0;
+    padding:12px 14px;
+    border-radius:var(--radius);
+    border:1px solid var(--sonar-dim);
+    background:rgba(57,255,158,0.06);
+    font-size:13px;
+    line-height:1.5;
+  }
+  .welcome-banner b{color:var(--sonar);}
+
+  /* ---------- MAPPA ---------- */
+  .map-toolbar{
+    display:flex; gap:8px; padding:14px 18px 10px; flex-wrap:wrap;
+  }
+  .tool-btn{
+    font-family:var(--font-body);
+    font-weight:500;
+    font-size:13px;
+    background:var(--panel);
+    color:var(--foam);
+    border:1px solid var(--line);
+    padding:8px 12px;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex; align-items:center; gap:6px;
+  }
+  .tool-btn:active{background:var(--panel-2);}
+  .tool-btn.toggle-on{border-color:var(--sonar-dim); color:var(--sonar);}
+  .map-hint{
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--steel);
+    padding:0 18px 10px;
+  }
+  #map-container{flex:0 0 auto; height:360px; background:var(--panel-2);}
+
+  .zone-legend{padding:14px 18px 6px;}
+  .zone-legend-title{
+    font-family:var(--font-display); font-weight:600; font-size:14px; margin-bottom:10px;
+  }
+  .zone-row{
+    display:flex; align-items:flex-start; gap:10px;
+    padding:10px; border-radius:10px; border:1px solid var(--line);
+    background:var(--panel); margin-bottom:8px; cursor:pointer;
+  }
+  .zone-row.selected{border-color:var(--sonar-dim);}
+  .zone-dot{width:12px; height:12px; border-radius:50%; margin-top:3px; flex-shrink:0;}
+  .zone-name{font-weight:600; font-size:13.5px;}
+  .zone-range{font-family:var(--font-mono); font-size:10px; color:var(--steel); margin-left:6px;}
+  .zone-species{font-size:12px; color:var(--steel); margin-top:3px; line-height:1.5;}
+  .zone-desc{font-size:12px; color:var(--foam); margin-top:6px; line-height:1.5; display:none;}
+  .zone-row.selected .zone-desc{display:block;}
+
+  .amp-card{
+    margin:12px 18px 4px; padding:14px; border-radius:var(--radius);
+    border:1px solid #4a2a24; background:rgba(255,90,78,0.07);
+  }
+  .amp-title{font-family:var(--font-display); font-weight:600; font-size:13.5px; color:var(--alert); display:flex; align-items:center; gap:6px;}
+  .amp-text{font-size:12px; color:var(--steel); margin-top:6px; line-height:1.55;}
+  .amp-text b{color:var(--foam); font-weight:600;}
+
+  .disclaimer{
+    font-size:11px; color:var(--steel); line-height:1.5;
+    padding:14px 18px 4px;
+  }
+
+  /* ---------- DIARIO ---------- */
+  .section-pad{padding:16px 18px;}
+  .stats-row{display:flex; gap:10px; margin-bottom:16px;}
+  .stat-card{
+    flex:1; background:var(--panel); border:1px solid var(--line);
+    border-radius:var(--radius); padding:12px;
+  }
+  .stat-num{font-family:var(--font-mono); font-size:20px; font-weight:600; color:var(--amber);}
+  .stat-label{font-size:11px; color:var(--steel); margin-top:2px;}
+  .primary-btn{
+    width:100%;
+    font-family:var(--font-body);
+    font-weight:600;
+    font-size:14px;
+    background:var(--sonar);
+    color:#04150E;
+    border:none;
+    padding:13px;
+    border-radius:12px;
+    cursor:pointer;
+    margin-bottom:16px;
+  }
+  .catch-card{
+    background:var(--panel); border:1px solid var(--line);
+    border-radius:var(--radius); padding:14px; margin-bottom:10px;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    gap:10px;
+  }
+  .catch-species{font-family:var(--font-display); font-weight:600; font-size:15px;}
+  .catch-meta{font-size:12px; color:var(--steel); margin-top:4px; line-height:1.5;}
+  .catch-weight{font-family:var(--font-mono); color:var(--sonar); font-size:16px; font-weight:600; text-align:right;}
+  .del-btn{background:none;border:none;color:var(--steel);font-size:16px;cursor:pointer;padding:2px 6px;}
+  .empty-state{
+    text-align:center; color:var(--steel); font-size:13px;
+    padding:30px 20px; border:1px dashed var(--line); border-radius:var(--radius);
+  }
+
+  /* ---------- METEO ---------- */
+  .weather-hero{
+    padding:22px 18px;
+    border-bottom:1px solid var(--line);
+  }
+  .weather-temp{font-family:var(--font-display); font-size:46px; font-weight:700; line-height:1;}
+  .weather-desc{color:var(--steel); font-size:13px; margin-top:6px;}
+  .cond-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:16px 18px;}
+  .cond-card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:12px;}
+  .cond-label{font-family:var(--font-mono); font-size:10px; color:var(--steel); text-transform:uppercase; letter-spacing:0.08em;}
+  .cond-value{font-family:var(--font-mono); font-size:19px; color:var(--foam); margin-top:4px; font-weight:600;}
+  .fish-window{
+    margin:0 18px 16px; padding:14px 16px; border-radius:var(--radius);
+    border:1px solid var(--sonar-dim); background:rgba(57,255,158,0.06);
+  }
+  .fish-window.low{border-color:#4a3a1e; background:rgba(255,178,56,0.06);}
+  .fish-window-title{font-family:var(--font-display); font-weight:600; font-size:14px; display:flex; align-items:center; gap:8px;}
+  .fish-window-sub{font-size:12px; color:var(--steel); margin-top:5px; line-height:1.5;}
+  .hourly-row{
+    display:flex; gap:10px; overflow-x:auto; padding:0 18px 20px;
+  }
+  .hour-chip{
+    flex:0 0 auto; text-align:center; background:var(--panel);
+    border:1px solid var(--line); border-radius:10px; padding:10px 12px; min-width:56px;
+  }
+  .hour-chip .h{font-family:var(--font-mono); font-size:10px; color:var(--steel);}
+  .hour-chip .t{font-family:var(--font-mono); font-size:14px; margin-top:6px; color:var(--foam);}
+  .loading{padding:30px 18px; text-align:center; color:var(--steel); font-size:13px; font-family:var(--font-mono);}
+
+  /* ---------- FORM MODAL ---------- */
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(5,10,16,0.72);
+    display:none; align-items:flex-end; justify-content:center; z-index:100;
+  }
+  .modal-backdrop.open{display:flex;}
+  .modal{
+    width:100%; max-width:520px; background:var(--panel);
+    border-radius:20px 20px 0 0; padding:20px 18px 26px;
+    max-height:85vh; overflow-y:auto;
+    border-top:1px solid var(--line);
+  }
+  .modal-title{font-family:var(--font-display); font-weight:600; font-size:16px; margin-bottom:14px;}
+  .field{margin-bottom:12px;}
+  .field label{display:block; font-size:12px; color:var(--steel); margin-bottom:5px;}
+  .field input, .field select, .field textarea{
+    width:100%; background:var(--panel-2); border:1px solid var(--line);
+    color:var(--foam); padding:10px 12px; border-radius:9px; font-size:14px;
+    font-family:var(--font-body);
+  }
+  .field textarea{resize:vertical; min-height:60px;}
+  .modal-actions{display:flex; gap:10px; margin-top:6px;}
+  .btn-secondary{
+    flex:1; background:transparent; border:1px solid var(--line); color:var(--steel);
+    padding:12px; border-radius:10px; font-family:var(--font-body); font-weight:500; cursor:pointer;
+  }
+  .btn-primary{
+    flex:2; background:var(--sonar); border:none; color:#04150E;
+    padding:12px; border-radius:10px; font-family:var(--font-body); font-weight:600; cursor:pointer;
+  }
+
+  /* ---------- Bottom nav ---------- */
+  .bottom-nav{
+    position:fixed; bottom:0; left:50%; transform:translateX(-50%);
+    width:100%; max-width:520px;
+    display:flex; background:var(--panel-2); border-top:1px solid var(--line);
+    padding:8px 6px calc(8px + env(safe-area-inset-bottom));
+    z-index:50;
+  }
+  .nav-btn{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;
+    background:none; border:none; color:var(--steel); cursor:pointer; padding:6px 0;
+  }
+  .nav-btn.active{color:var(--sonar);}
+  .nav-btn svg{width:21px; height:21px;}
+  .nav-btn span{font-size:10px; font-family:var(--font-mono); letter-spacing:0.03em;}
+
+  .leaflet-container{background:var(--panel-2) !important; font-family:var(--font-body);}
+  ::-webkit-scrollbar{display:none;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="topbar">
+    <div>
+      <div class="brand-mark">DERIVA<span>.</span></div>
+      <div class="brand-sub">per <b>Fabio Brogi</b></div>
+    </div>
+    <div class="port-pill">⚓ Porto di Ognina</div>
+  </div>
+
+  <!-- MAPPA -->
+  <section class="screen active" id="screen-mappa">
+    <div class="welcome-banner">
+      ⚓ <b>Buona pesca, Fabio!</b> Ecco le zone di pesca entro 5 km dal porto di Ognina, con le specie più probabili in ciascuna fascia.
+    </div>
+    <div class="map-toolbar">
+      <button class="tool-btn" id="locateBtn">◎ La mia posizione</button>
+      <button class="tool-btn" id="addSpotBtn">＋ Aggiungi spot</button>
+      <button class="tool-btn toggle-on" id="toggleZonesBtn">🎣 Zone di pesca</button>
+    </div>
+    <p class="map-hint">Tocca la mappa per salvare un nuovo spot personale in quel punto.</p>
+    <div id="map-container"></div>
+
+    <div class="zone-legend">
+      <div class="zone-legend-title">Fasce di pesca da Ognina</div>
+      <div class="zone-row" data-zone="0">
+        <div class="zone-dot" style="background:var(--sonar)"></div>
+        <div style="flex:1">
+          <span class="zone-name">Costa rocciosa e calette</span><span class="zone-range">0–500 m</span>
+          <div class="zone-species">Sarago · Spigola · Occhiata · Sciarrano · Donzella pavonina</div>
+          <div class="zone-desc">Fondali misti a ridosso della costa: anfratti, scogliera sommersa e lingue di sabbia. Ottima per la pesca leggera e lo spinning da riva o vicino agli scogli.</div>
+        </div>
+      </div>
+      <div class="zone-row" data-zone="1">
+        <div class="zone-dot" style="background:var(--amber)"></div>
+        <div style="flex:1">
+          <span class="zone-name">Prateria di Posidonia</span><span class="zone-range">500 m – 1,5 km</span>
+          <div class="zone-species">Dentice · Orata · Corvina · Polpo · Cernia (giovanile)</div>
+          <div class="zone-desc">Distese di Posidonia oceanica alternate a tratti sabbiosi e ciottolosi — l’habitat che nutre gran parte della costa siracusana.</div>
+        </div>
+      </div>
+      <div class="zone-row" data-zone="2">
+        <div class="zone-dot" style="background:var(--coral)"></div>
+        <div style="flex:1">
+          <span class="zone-name">Secca e scogliera sommersa</span><span class="zone-range">1,5 – 3 km</span>
+          <div class="zone-species">Cernia · Dentice · Ricciola</div>
+          <div class="zone-desc">Scarpata rocciosa e secche al largo, dove i predatori pattugliano il bordo della prateria. Zona classica per bolentino e traina leggera.</div>
+        </div>
+      </div>
+      <div class="zone-row" data-zone="3">
+        <div class="zone-dot" style="background:var(--deep)"></div>
+        <div style="flex:1">
+          <span class="zone-name">Mare aperto</span><span class="zone-range">3 – 5 km</span>
+          <div class="zone-species">Ricciola · Palamita · Tonno di passo (in stagione)</div>
+          <div class="zone-desc">Acque più profonde al limite dei 5 km dal porto, frequentate per il vertical jigging e la traina d’altura — tecniche già praticate al largo di Ognina.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="amp-card">
+      <div class="amp-title">⚠️ Area Marina Protetta del Plemmirio</div>
+      <div class="amp-text">
+        A nord di Ognina, verso Capo Murro di Porco, la <b>Zona A (Riserva Integrale)</b> segnata in rosso sulla mappa è vietata in modo assoluto: niente pesca, balneazione, navigazione né immersione (confini ufficiali del decreto istitutivo del 15/09/2004).<br><br>
+        La fascia costiera tra Cala di Massaolivieri e Punta di Milocca rientra invece in <b>Zona B/C</b>: la pesca sportiva è ammessa ma solo previa autorizzazione del <b>Consorzio Plemmirio</b>, con limiti di prelievo (5 kg/barca, 3 kg/persona al giorno) e attrezzatura consentita. Verifica sempre i confini esatti e le autorizzazioni prima di uscire in barca.
+      </div>
+    </div>
+
+    <p class="disclaimer">Zone indicative basate su morfologia costiera, prateria di Posidonia e segnalazioni di pesca locali — non su rilievi batimetrici precisi. Usa il tuo Lowrance HOOK per la profondità reale una volta sul posto.</p>
+  </section>
+
+  <!-- DIARIO -->
+  <section class="screen" id="screen-diario">
+    <div class="section-pad">
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-num" id="statTotal">0</div>
+          <div class="stat-label">Catture</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="statBest">—</div>
+          <div class="stat-label">Più grande</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="statSpecies">—</div>
+          <div class="stat-label">Specie preferita</div>
+        </div>
+      </div>
+      <button class="primary-btn" id="addCatchBtn">＋ Registra una cattura</button>
+      <div id="catchList"></div>
+    </div>
+  </section>
+
+  <!-- METEO -->
+  <section class="screen" id="screen-meteo">
+    <div id="meteoContent">
+      <div class="loading">Caricamento delle condizioni…</div>
+    </div>
+  </section>
+
+  <div class="bottom-nav">
+    <button class="nav-btn active" data-screen="mappa">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.1-7-11a7 7 0 0 1 14 0c0 4.9-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+      <span>MAPPA</span>
+    </button>
+    <button class="nav-btn" data-screen="diario">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5"/><path d="M4 4.5v15A2.5 2.5 0 0 0 6.5 22H20"/></svg>
+      <span>DIARIO</span>
+    </button>
+    <button class="nav-btn" data-screen="meteo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.4-1.5A4.5 4.5 0 0 0 6.5 19h11z"/></svg>
+      <span>METEO</span>
+    </button>
+  </div>
+</div>
+
+<!-- MODAL: add spot -->
+<div class="modal-backdrop" id="spotModal">
+  <div class="modal">
+    <div class="modal-title">Nuovo spot</div>
+    <div class="field"><label>Nome</label><input type="text" id="spotName" placeholder="Es. Scoglio delle spigole"></div>
+    <div class="field"><label>Specie target</label><input type="text" id="spotSpecies" placeholder="Es. Spigola, Orata, Ricciola…"></div>
+    <div class="field"><label>Profondità stimata (m)</label><input type="number" id="spotDepth" placeholder="Es. 18"></div>
+    <div class="field"><label>Note</label><textarea id="spotNotes" placeholder="Fondale, corrente, punti di riferimento…"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="spotCancel">Annulla</button>
+      <button class="btn-primary" id="spotSave">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: add catch -->
+<div class="modal-backdrop" id="catchModal">
+  <div class="modal">
+    <div class="modal-title">Nuova cattura</div>
+    <div class="field"><label>Specie</label>
+      <select id="catchSpecies">
+        <option>Spigola</option><option>Orata</option><option>Sarago</option>
+        <option>Dentice</option><option>Ricciola</option><option>Tonno rosso</option>
+        <option>Cernia</option><option>Triglia</option><option>Grongo</option>
+        <option>Polpo</option><option>Calamaro</option><option>Pesce spada</option><option>Altro</option>
+      </select>
+    </div>
+    <div class="field"><label>Peso (kg)</label><input type="number" step="0.01" id="catchWeight" placeholder="Es. 2.4"></div>
+    <div class="field"><label>Lunghezza (cm)</label><input type="number" id="catchLength" placeholder="Es. 48"></div>
+    <div class="field"><label>Spot</label><select id="catchSpot"><option value="">Nessuno spot</option></select></div>
+    <div class="field"><label>Data</label><input type="date" id="catchDate"></div>
+    <div class="field"><label>Note</label><textarea id="catchNotes" placeholder="Tecnica, esca, condizioni…"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="catchCancel">Annulla</button>
+      <button class="btn-primary" id="catchSave">Salva</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var PORT_LAT = 36.972972972972975, PORT_LON = 15.268373340680336;
+  var state = {
+    coords: {lat: PORT_LAT, lon: PORT_LON},
+    spots: [],
+    catches: [],
+    map: null,
+    markers: [],
+    zoneLayers: [],
+    zonesVisible: true,
+    pendingSpotLatLng: null,
+    weatherLoaded: false
+  };
+
+  var ZONES = [
+    {radius:500,  color:'#39FF9E', name:'Costa rocciosa e calette'},
+    {radius:1500, color:'#FFB238', name:'Prateria di Posidonia'},
+    {radius:3000, color:'#FF7A38', name:'Secca e scogliera sommersa'},
+    {radius:5000, color:'#5EA0C8', name:'Mare aperto'}
+  ];
+
+  // Confini ufficiali Zona A (Riserva Integrale) AMP Plemmirio — Decreto 15/09/2004
+  var AMP_ZONE_A = [
+    [37.008833, 15.335833], // N1
+    [37.017333, 15.340833], // P
+    [36.999000, 15.340833], // Q
+    [36.999000, 15.327500], // R
+    [37.002333, 15.330333]  // S1
+  ];
+
+  // ---------- Storage helpers ----------
+  async function loadState(){
+    try{
+      var r = await window.storage.get('spots');
+      state.spots = r ? JSON.parse(r.value) : [];
+    }catch(e){ state.spots = []; }
+    try{
+      var r2 = await window.storage.get('catches');
+      state.catches = r2 ? JSON.parse(r2.value) : [];
+    }catch(e){ state.catches = []; }
+  }
+  async function saveSpots(){
+    try{ await window.storage.set('spots', JSON.stringify(state.spots)); }catch(e){ console.error('save spots failed', e); }
+  }
+  async function saveCatches(){
+    try{ await window.storage.set('catches', JSON.stringify(state.catches)); }catch(e){ console.error('save catches failed', e); }
+  }
+
+  // ---------- Navigation ----------
+  document.querySelectorAll('.nav-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var target = btn.getAttribute('data-screen');
+      document.querySelectorAll('.nav-btn').forEach(function(b){b.classList.remove('active');});
+      btn.classList.add('active');
+      document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
+      document.getElementById('screen-'+target).classList.add('active');
+      if(target === 'mappa'){ setTimeout(function(){ if(state.map) state.map.invalidateSize(); }, 60); }
+      if(target === 'meteo' && !state.weatherLoaded){ loadWeather(); }
+      if(target === 'diario'){ renderCatches(); }
+    });
+  });
+
+  // ---------- Geolocation ----------
+  function initGeolocation(){
+    if(!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(function(pos){
+      state.coords.lat = pos.coords.latitude;
+      state.coords.lon = pos.coords.longitude;
+    }, function(){ /* mantieni le coordinate del porto */ }, {timeout:6000});
+  }
+
+  // ---------- MAPPA ----------
+  function initMap(){
+    state.map = L.map('map-container', {zoomControl:true, attributionControl:true})
+      .setView([PORT_LAT, PORT_LON], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(state.map);
+
+    state.map.on('click', function(e){
+      state.pendingSpotLatLng = e.latlng;
+      openSpotModal();
+    });
+
+    drawZones();
+    renderSpotMarkers();
+
+    var portMarker = L.marker([PORT_LAT, PORT_LON], {icon: portIcon()}).addTo(state.map);
+    portMarker.bindPopup('<b>Porto di Ognina</b><br><span style="color:#5C7A8A">Casa di Fabio Brogi ⚓</span>');
+
+    var group = L.featureGroup(state.zoneLayers.concat([portMarker]));
+    try{ state.map.fitBounds(group.getBounds(), {padding:[24,24]}); }catch(e){}
+  }
+
+  function portIcon(){
+    return L.divIcon({
+      className:'',
+      html:'<div style="width:18px;height:18px;border-radius:50%;background:#0A1626;border:3px solid #39FF9E;box-shadow:0 0 8px rgba(57,255,158,0.6)"></div>',
+      iconSize:[18,18],
+      iconAnchor:[9,9]
+    });
+  }
+
+  function drawZones(){
+    state.zoneLayers.forEach(function(l){ state.map.removeLayer(l); });
+    state.zoneLayers = [];
+    if(!state.zonesVisible) return;
+
+    // fasce concentriche, dalla più ampia alla più stretta cosi' l'effetto e' ad anelli
+    for(var i = ZONES.length-1; i>=0; i--){
+      var z = ZONES[i];
+      var circle = L.circle([PORT_LAT, PORT_LON], {
+        radius: z.radius,
+        color: z.color,
+        weight: 1,
+        opacity: 0.55,
+        fillColor: z.color,
+        fillOpacity: 0.13,
+        dashArray: '4 5'
+      }).addTo(state.map);
+      circle.bindTooltip(z.name + ' (fino a ' + (z.radius/1000).toString().replace('.',',') + ' km)', {sticky:true});
+      circle.on('click', function(zi){
+        return function(){ selectZone(zi); };
+      }(i));
+      state.zoneLayers.push(circle);
+    }
+
+    var ampPoly = L.polygon(AMP_ZONE_A, {
+      color:'#FF5A4E', weight:2, opacity:0.9,
+      fillColor:'#FF5A4E', fillOpacity:0.22
+    }).addTo(state.map);
+    ampPoly.bindPopup('<b style="color:#FF5A4E">Zona A — Riserva Integrale</b><br><span style="color:#5C7A8A">AMP Plemmirio: divieto assoluto di pesca, balneazione e navigazione.</span>');
+    state.zoneLayers.push(ampPoly);
+  }
+
+  document.getElementById('toggleZonesBtn').addEventListener('click', function(){
+    state.zonesVisible = !state.zonesVisible;
+    this.classList.toggle('toggle-on', state.zonesVisible);
+    drawZones();
+  });
+
+  document.querySelectorAll('.zone-row').forEach(function(row){
+    row.addEventListener('click', function(){
+      var zi = parseInt(row.getAttribute('data-zone'),10);
+      selectZone(zi);
+    });
+  });
+  function selectZone(zi){
+    document.querySelectorAll('.zone-row').forEach(function(r){ r.classList.remove('selected'); });
+    var row = document.querySelector('.zone-row[data-zone="'+zi+'"]');
+    if(row) row.classList.add('selected');
+    if(state.map && state.zoneLayers[ZONES.length-1-zi]){
+      var target = ZONES.length-1-zi;
+      try{ state.map.fitBounds(state.zoneLayers[target].getBounds(), {padding:[20,20]}); }catch(e){}
+    }
+  }
+
+  function spotIcon(){
+    return L.divIcon({
+      className:'',
+      html:'<div style="width:16px;height:16px;border-radius:50% 50% 50% 0;background:#FFB238;transform:rotate(-45deg);border:2px solid #0A1626;box-shadow:0 0 0 2px rgba(255,178,56,0.35)"></div>',
+      iconSize:[16,16],
+      iconAnchor:[8,16]
+    });
+  }
+
+  function renderSpotMarkers(){
+    if(!state.map) return;
+    state.markers.forEach(function(m){ state.map.removeLayer(m); });
+    state.markers = [];
+    state.spots.forEach(function(spot){
+      var marker = L.marker([spot.lat, spot.lon], {icon: spotIcon()}).addTo(state.map);
+      marker.bindPopup(
+        '<div style="font-family:Inter,sans-serif;min-width:160px">' +
+        '<b>'+escapeHtml(spot.name || 'Spot')+'</b><br>' +
+        (spot.species ? '<span style="color:#5C7A8A">Target: '+escapeHtml(spot.species)+'</span><br>' : '') +
+        (spot.depth ? '<span style="color:#5C7A8A">Prof. ~'+escapeHtml(String(spot.depth))+' m</span><br>' : '') +
+        (spot.notes ? '<div style="margin-top:4px">'+escapeHtml(spot.notes)+'</div>' : '') +
+        '</div>'
+      );
+      state.markers.push(marker);
+    });
+  }
+
+  document.getElementById('locateBtn').addEventListener('click', function(){
+    if(!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(function(pos){
+      state.coords.lat = pos.coords.latitude;
+      state.coords.lon = pos.coords.longitude;
+      if(state.map){ state.map.setView([state.coords.lat, state.coords.lon], 14); }
+    });
+  });
+
+  document.getElementById('addSpotBtn').addEventListener('click', function(){
+    state.pendingSpotLatLng = {lat: state.coords.lat, lng: state.coords.lon};
+    openSpotModal();
+  });
+
+  function openSpotModal(){
+    document.getElementById('spotName').value = '';
+    document.getElementById('spotSpecies').value = '';
+    document.getElementById('spotDepth').value = '';
+    document.getElementById('spotNotes').value = '';
+    document.getElementById('spotModal').classList.add('open');
+  }
+  document.getElementById('spotCancel').addEventListener('click', function(){
+    document.getElementById('spotModal').classList.remove('open');
+  });
+  document.getElementById('spotSave').addEventListener('click', async function(){
+    if(!state.pendingSpotLatLng) return;
+    var spot = {
+      id: 'spot_'+Date.now(),
+      name: document.getElementById('spotName').value || 'Spot senza nome',
+      species: document.getElementById('spotSpecies').value,
+      depth: document.getElementById('spotDepth').value,
+      notes: document.getElementById('spotNotes').value,
+      lat: state.pendingSpotLatLng.lat,
+      lon: state.pendingSpotLatLng.lng,
+      createdAt: new Date().toISOString()
+    };
+    state.spots.push(spot);
+    await saveSpots();
+    renderSpotMarkers();
+    populateSpotSelect();
+    document.getElementById('spotModal').classList.remove('open');
+  });
+
+  // ---------- DIARIO ----------
+  function populateSpotSelect(){
+    var sel = document.getElementById('catchSpot');
+    sel.innerHTML = '<option value="">Nessuno spot</option>';
+    state.spots.forEach(function(s){
+      var opt = document.createElement('option');
+      opt.value = s.id; opt.textContent = s.name;
+      sel.appendChild(opt);
+    });
+  }
+
+  document.getElementById('addCatchBtn').addEventListener('click', function(){
+    document.getElementById('catchWeight').value = '';
+    document.getElementById('catchLength').value = '';
+    document.getElementById('catchNotes').value = '';
+    document.getElementById('catchDate').value = new Date().toISOString().slice(0,10);
+    populateSpotSelect();
+    document.getElementById('catchModal').classList.add('open');
+  });
+  document.getElementById('catchCancel').addEventListener('click', function(){
+    document.getElementById('catchModal').classList.remove('open');
+  });
+  document.getElementById('catchSave').addEventListener('click', async function(){
+    var c = {
+      id: 'catch_'+Date.now(),
+      species: document.getElementById('catchSpecies').value,
+      weight: parseFloat(document.getElementById('catchWeight').value) || 0,
+      length: parseFloat(document.getElementById('catchLength').value) || 0,
+      spotId: document.getElementById('catchSpot').value,
+      date: document.getElementById('catchDate').value || new Date().toISOString().slice(0,10),
+      notes: document.getElementById('catchNotes').value
+    };
+    state.catches.unshift(c);
+    await saveCatches();
+    renderCatches();
+    document.getElementById('catchModal').classList.remove('open');
+  });
+
+  function renderCatches(){
+    var list = document.getElementById('catchList');
+    if(state.catches.length === 0){
+      list.innerHTML = '<div class="empty-state">Nessuna cattura registrata per ora.<br>Il diario si riempie dopo la tua prima uscita, Fabio.</div>';
+    } else {
+      list.innerHTML = state.catches.map(function(c){
+        var spot = state.spots.find(function(s){ return s.id === c.spotId; });
+        return '<div class="catch-card">' +
+          '<div>' +
+            '<div class="catch-species">'+escapeHtml(c.species)+'</div>' +
+            '<div class="catch-meta">'+formatDate(c.date)+(spot ? ' · '+escapeHtml(spot.name) : '')+(c.length ? ' · '+c.length+' cm' : '')+'</div>' +
+            (c.notes ? '<div class="catch-meta">'+escapeHtml(c.notes)+'</div>' : '') +
+          '</div>' +
+          '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">' +
+            '<div class="catch-weight">'+(c.weight ? c.weight+' kg' : '—')+'</div>' +
+            '<button class="del-btn" data-id="'+c.id+'">✕</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    document.getElementById('statTotal').textContent = state.catches.length;
+    if(state.catches.length){
+      var best = state.catches.reduce(function(a,b){ return (b.weight>a.weight)?b:a; });
+      document.getElementById('statBest').textContent = best.weight ? best.weight+'kg' : '—';
+      var counts = {};
+      state.catches.forEach(function(c){ counts[c.species] = (counts[c.species]||0)+1; });
+      var top = Object.keys(counts).sort(function(a,b){ return counts[b]-counts[a]; })[0];
+      document.getElementById('statSpecies').textContent = top || '—';
+    } else {
+      document.getElementById('statBest').textContent = '—';
+      document.getElementById('statSpecies').textContent = '—';
+    }
+
+    list.querySelectorAll('.del-btn').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        var id = btn.getAttribute('data-id');
+        state.catches = state.catches.filter(function(c){ return c.id !== id; });
+        await saveCatches();
+        renderCatches();
+      });
+    });
+  }
+
+  function formatDate(iso){
+    try{
+      var d = new Date(iso+'T12:00:00');
+      return d.toLocaleDateString('it-IT', {day:'numeric', month:'short', year:'numeric'});
+    }catch(e){ return iso; }
+  }
+  function escapeHtml(str){
+    return String(str==null?'':str).replace(/[&<>"']/g, function(m){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
+    });
+  }
+
+  // ---------- METEO ----------
+  var WCODE = {
+    0:['Cielo sereno','☀️'],1:['Generalmente sereno','🌤️'],2:['Parzialmente nuvoloso','⛅'],3:['Coperto','☁️'],
+    45:['Nebbia','🌫️'],48:['Nebbia con brina','🌫️'],
+    51:['Pioviggine leggera','🌦️'],53:['Pioviggine','🌦️'],55:['Pioviggine intensa','🌦️'],
+    61:['Pioggia debole','🌧️'],63:['Pioggia','🌧️'],65:['Pioggia forte','🌧️'],
+    71:['Neve debole','🌨️'],73:['Neve','🌨️'],75:['Neve forte','🌨️'],
+    80:['Rovesci','🌦️'],81:['Rovesci forti','🌧️'],82:['Rovesci violenti','⛈️'],
+    95:['Temporale','⛈️'],96:['Temporale con grandine','⛈️'],99:['Temporale violento','⛈️']
+  };
+
+  function moonPhase(){
+    var known = new Date(Date.UTC(2000,0,6,18,14)).getTime();
+    var now = Date.now();
+    var synodic = 29.53058867;
+    var days = (now - known)/86400000;
+    var age = days % synodic;
+    if(age < 0) age += synodic;
+    var frac = age/synodic;
+    var names = ['Luna nuova','Luna crescente','Primo quarto','Gibbosa crescente','Luna piena','Gibbosa calante','Ultimo quarto','Luna calante'];
+    var idx = Math.floor(frac*8+0.5) % 8;
+    return {age: age, name: names[idx], illum: (1-Math.cos(frac*2*Math.PI))/2};
+  }
+
+  async function loadWeather(){
+    state.weatherLoaded = true;
+    var lat = state.coords.lat, lon = state.coords.lon;
+    var content = document.getElementById('meteoContent');
+    try{
+      var fUrl = 'https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+
+        '&current=temperature_2m,wind_speed_10m,wind_direction_10m,weather_code' +
+        '&hourly=temperature_2m,wind_speed_10m&forecast_days=1&timezone=auto';
+      var mUrl = 'https://marine-api.open-meteo.com/v1/marine?latitude='+lat+'&longitude='+lon+
+        '&current=wave_height,wave_period,sea_surface_temperature&timezone=auto';
+
+      var fRes = await fetch(fUrl);
+      var fData = await fRes.json();
+      var mData = null;
+      try{
+        var mRes = await fetch(mUrl);
+        if(mRes.ok){ mData = await mRes.json(); }
+      }catch(e){ mData = null; }
+
+      renderWeather(fData, mData);
+    }catch(e){
+      content.innerHTML = '<div class="loading">Impossibile recuperare le condizioni in tempo reale. Controlla la connessione.</div>';
+      console.error(e);
+    }
+  }
+
+  function renderWeather(fData, mData){
+    var cur = fData.current || {};
+    var wcode = WCODE[cur.weather_code] || ['—','·'];
+    var moon = moonPhase();
+    var wind = cur.wind_speed_10m;
+    var windDir = cur.wind_direction_10m;
+
+    var hasMarine = mData && mData.current && (mData.current.sea_surface_temperature != null);
+
+    var windOk = (wind != null && wind < 15);
+    var moonOk = (moon.age < 1.5 || Math.abs(moon.age-14.77) < 1.5);
+    var favorable = windOk && moonOk;
+    var partial = windOk || moonOk;
+
+    var html = '';
+    html += '<div class="weather-hero">' +
+      '<div class="weather-temp">'+Math.round(cur.temperature_2m)+'°<span style="font-size:20px;color:var(--steel);margin-left:6px">'+wcode[1]+'</span></div>' +
+      '<div class="weather-desc">'+wcode[0]+' · Vento '+Math.round(wind)+' km/h</div>' +
+    '</div>';
+
+    html += '<div class="cond-grid">';
+    html += condCard('VENTO', Math.round(wind)+' km/h', compassDir(windDir));
+    if(hasMarine){
+      html += condCard('MOTO ONDOSO', mData.current.wave_height.toFixed(1)+' m', 'Periodo '+Math.round(mData.current.wave_period)+'s');
+      html += condCard('TEMP. MARE', mData.current.sea_surface_temperature.toFixed(1)+'°C', '');
+    }
+    html += condCard('LUNA', Math.round(moon.illum*100)+'%', moon.name);
+    html += '</div>';
+
+    html += '<div class="fish-window '+(favorable?'':'low')+'">' +
+      '<div class="fish-window-title">'+(favorable?'🎣 Finestra favorevole':(partial?'🎣 Condizioni medie':'🎣 Condizioni difficili'))+'</div>' +
+      '<div class="fish-window-sub">Stima indicativa (teoria lunare) basata su vento e fase lunare — '+moon.name.toLowerCase()+', vento '+Math.round(wind)+' km/h.</div>' +
+    '</div>';
+
+    if(fData.hourly && fData.hourly.time){
+      html += '<div class="hourly-row">';
+      var now = new Date();
+      for(var i=0;i<fData.hourly.time.length;i++){
+        var hDate = new Date(fData.hourly.time[i]);
+        if(hDate < now) continue;
+        html += '<div class="hour-chip"><div class="h">'+hDate.getHours()+'h</div><div class="t">'+Math.round(fData.hourly.temperature_2m[i])+'°</div></div>';
+      }
+      html += '</div>';
+    }
+
+    document.getElementById('meteoContent').innerHTML = html;
+  }
+
+  function condCard(label, value, sub){
+    return '<div class="cond-card"><div class="cond-label">'+label+'</div><div class="cond-value">'+value+'</div>' +
+      (sub ? '<div class="cond-label" style="margin-top:3px">'+sub+'</div>' : '') + '</div>';
+  }
+  function compassDir(deg){
+    if(deg==null) return '';
+    var dirs=['N','NE','E','SE','S','SO','O','NO'];
+    return dirs[Math.round(deg/45)%8];
+  }
+
+  // ---------- Boot ----------
+  async function boot(){
+    await loadState();
+    populateSpotSelect();
+    renderCatches();
+    initGeolocation();
+    initMap();
+  }
+  boot();
+})();
+</script>
+</body>
+</html>
