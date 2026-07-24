@@ -147,6 +147,14 @@
     margin:12px 18px 4px; padding:14px; border-radius:var(--radius);
     border:1px solid #4a2a24; background:rgba(255,90,78,0.07);
   }
+  .species-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:10px; cursor:pointer; text-align:left;
+  }
+  .species-card.active{border-color:var(--sonar-dim);}
+  .species-card .sp-icon{font-size:18px;}
+  .species-card .sp-name{font-weight:600; font-size:13px; margin-top:4px;}
+  .species-card .sp-zone{font-family:var(--font-mono); font-size:10px; color:var(--steel); margin-top:2px;}
   .amp-title{font-family:var(--font-display); font-weight:600; font-size:13.5px; color:var(--alert); display:flex; align-items:center; gap:6px;}
   .amp-text{font-size:12px; color:var(--steel); margin-top:6px; line-height:1.55;}
   .amp-text b{color:var(--foam); font-weight:600;}
@@ -293,6 +301,7 @@
       <button class="tool-btn" id="locateBtn">◎ La mia posizione</button>
       <button class="tool-btn" id="addSpotBtn">＋ Aggiungi spot</button>
       <button class="tool-btn toggle-on" id="toggleZonesBtn">🎣 Zone di pesca</button>
+      <button class="tool-btn toggle-on" id="toggleSeabedBtn">🪨 Tipo di fondale</button>
     </div>
     <p class="map-hint">Tocca la mappa per salvare un nuovo spot personale in quel punto.</p>
     <div id="map-container"></div>
@@ -341,7 +350,26 @@
       </div>
     </div>
 
+    <div class="amp-card" style="border-color:#3a4a2a; background:rgba(255,178,56,0.06)">
+      <div class="amp-title" style="color:var(--amber)">🏺 Curiosità dal mare di Ognina</div>
+      <div class="amp-text">
+        Nel 2019 la Soprintendenza del Mare ha scoperto al largo di Marina di Ognina il <b>“Relitto delle Olle”</b>, una nave oneraria di epoca tardo antica (15–18 m) a circa 1 miglio dalla costa, a 70–75 m di profondità. Il sito è tutelato: niente ancoraggio né prelievo nella zona.<br><br>
+        Al largo di Capo Murro di Porco giace inoltre il sommergibile italiano <b>FR 111</b>, affondato nel febbraio 1943.<br><br>
+        Le coordinate esatte di questi siti non sono pubbliche (tutela archeologica): niente segnaposto preciso sulla mappa, ma vale la pena saperlo prima di calare l’ancora al largo.
+      </div>
+    </div>
+
     <p class="disclaimer">Zone indicative basate su morfologia costiera, prateria di Posidonia e segnalazioni di pesca locali — non su rilievi batimetrici precisi. Usa il tuo Lowrance HOOK per la profondità reale una volta sul posto.</p>
+  </section>
+
+  <!-- PESCA -->
+  <section class="screen" id="screen-pesca">
+    <div class="section-pad" style="padding-bottom:6px">
+      <div class="zone-legend-title" style="margin-bottom:4px">Che pesce vuoi cercare, Fabio?</div>
+      <p class="map-hint" style="padding:0 0 12px">Tocca una specie: ti mostro in quale fascia di mare cercarla.</p>
+      <div id="speciesGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:8px;"></div>
+      <div id="speciesDetail" style="display:none; margin-top:14px; padding:14px; border-radius:14px; background:var(--panel); border:1px solid var(--sonar-dim);"></div>
+    </div>
   </section>
 
   <!-- DIARIO -->
@@ -377,6 +405,10 @@
     <button class="nav-btn active" data-screen="mappa">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.1-7-11a7 7 0 0 1 14 0c0 4.9-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
       <span>MAPPA</span>
+    </button>
+    <button class="nav-btn" data-screen="pesca">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6-10-6-10-6z"/><circle cx="16" cy="12" r="1.2" fill="currentColor" stroke="none"/><path d="M2 12c0-1.5 1-2.5 1-2.5"/></svg>
+      <span>PESCA</span>
     </button>
     <button class="nav-btn" data-screen="diario">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5"/><path d="M4 4.5v15A2.5 2.5 0 0 0 6.5 22H20"/></svg>
@@ -419,6 +451,9 @@
     <div class="field"><label>Peso (kg)</label><input type="number" step="0.01" id="catchWeight" placeholder="Es. 2.4"></div>
     <div class="field"><label>Lunghezza (cm)</label><input type="number" id="catchLength" placeholder="Es. 48"></div>
     <div class="field"><label>Spot</label><select id="catchSpot"><option value="">Nessuno spot</option></select></div>
+    <div id="tunaWarning" style="display:none; margin-bottom:12px; padding:10px 12px; border-radius:9px; border:1px solid #4a2a24; background:rgba(255,90,78,0.08); font-size:12px; color:var(--steel); line-height:1.5;">
+      ⚠️ <b style="color:var(--foam)">Tonno rosso:</b> pesca sportiva consentita solo dal 16/6 al 14/10, con Nulla Osta della Capitaneria per la barca, max 1 esemplare/giorno (min. 30 kg o 115 cm). Cattura da dichiarare su <b style="color:var(--foam)">RecFishing</b> prima del rientro in porto.
+    </div>
     <div class="field"><label>Data</label><input type="date" id="catchDate"></div>
     <div class="field"><label>Note</label><textarea id="catchNotes" placeholder="Tecnica, esca, condizioni…"></textarea></div>
     <div class="modal-actions">
@@ -440,7 +475,9 @@
     map: null,
     markers: [],
     zoneLayers: [],
+    seabedLayers: [],
     zonesVisible: true,
+    seabedVisible: true,
     pendingSpotLatLng: null,
     weatherLoaded: false
   };
@@ -450,6 +487,38 @@
     {radius:1500, color:'#FFB238', name:'Prateria di Posidonia'},
     {radius:3000, color:'#FF7A38', name:'Secca e scogliera sommersa'},
     {radius:5000, color:'#5EA0C8', name:'Mare aperto'}
+  ];
+
+  var SPECIES = [
+    {name:'Sarago', icon:'🐟', zones:[0,1], minSize:'23 cm', note:'Comune tra gli scogli e nelle praterie di Posidonia. Bolentino leggero con granchio o bibi.'},
+    {name:'Spigola', icon:'🐟', zones:[0,1], minSize:'25 cm', note:'Caccia sottocosta all’alba e al tramonto. Ottima a spinning con minnow o vinilico.'},
+    {name:'Occhiata', icon:'🐠', zones:[0], minSize:'—', note:'Banchi vicino alla scogliera sommersa, spesso in superficie all’alba.'},
+    {name:'Sciarrano', icon:'🐠', zones:[0], minSize:'—', note:'Fondali rocciosi bassi, cattura frequente col bolentino leggero.'},
+    {name:'Donzella pavonina', icon:'🐠', zones:[0], minSize:'—', note:'Colorata, tipica degli anfratti rocciosi poco profondi.'},
+    {name:'Scorfano', icon:'🐡', zones:[0,2], minSize:'—', note:'Si appposta tra le rocce e le secche. Attenzione alle spine: sono velenose.'},
+    {name:'Polpo', icon:'🐙', zones:[0,1], minSize:'—', note:'Anfratti rocciosi e bordi della prateria di Posidonia. Si cerca anche in apnea o con tridente da riva.'},
+    {name:'Calamaro', icon:'🦑', zones:[1,2], minSize:'—', note:'Pesca notturna con totanare, sopra la Posidonia e lungo le secche.'},
+    {name:'Dentice', icon:'🐟', zones:[1,2], minSize:'—*', note:'Bordi della prateria e secche al largo. Nessuna taglia minima UE specifica (si applica il generico 7 cm), ma buona pratica: non prelevare sotto i 30 cm.'},
+    {name:'Orata', icon:'🐟', zones:[1], minSize:'20 cm', note:'Fondali misti sabbia-Posidonia. Bolentino con arenicola o granchio.'},
+    {name:'Corvina', icon:'🐟', zones:[1], minSize:'—', note:'Grotte e anfratti in penombra, spesso di notte vicino alla costa.'},
+    {name:'Cernia', icon:'🐡', zones:[1,2], minSize:'45 cm', note:'Max 1 esemplare al giorno per qualsiasi specie di cernia. Tana tra le rocce delle secche.'},
+    {name:'Ricciola', icon:'🐟', zones:[2,3], minSize:'—*', note:'Predatore delle secche e del mare aperto. Traina o vertical jigging.'},
+    {name:'Palamita', icon:'🐟', zones:[3], minSize:'—', note:'Branchi in caccia in superficie al largo, spesso in autunno.'},
+    {name:'Lampuga', icon:'🐟', zones:[3], minSize:'—', note:'Stagionale (fine estate-autunno), spesso sotto oggetti galleggianti alla deriva.'},
+    {name:'Tonno rosso', icon:'🐟', zones:[3], minSize:'30 kg / 115 cm', note:'Stagione 16/6–14/10, Nulla Osta Capitaneria obbligatorio, max 1/giorno, dichiarazione RecFishing prima del rientro.'},
+    {name:'Pesce spada', icon:'⚔️', zones:[3], minSize:'—', note:'Raro così vicino a riva, più tipico al largo. Richiede Nulla Osta specifico legato all’imbarcazione.'}
+  ];
+  // * nessuna taglia minima specifica nel Reg. CE 1967/2006: si applica il minimo generico di 7 cm (DPR 1639/1968)
+
+  // Punti indicativi sul tipo di fondale, basati su descrizioni generali del tratto costiero di Ognina
+  // (non rilievi GPS precisi — vedi disclaimer in app)
+  var SEABED_POINTS = [
+    {lat:36.9757, lon:15.2714, type:'Scogliera sommersa', desc:'Roccia immersa a ridosso della costa.'},
+    {lat:36.9694, lon:15.2746, type:'Prateria di Posidonia', desc:'Distesa di Posidonia oceanica.'},
+    {lat:36.9685, lon:15.2684, type:'Tratto sabbioso', desc:'Fondale sabbioso poco profondo.'},
+    {lat:36.9784, lon:15.2673, type:'Anfratti e grotte', desc:'Scogliera con anfratti e piccole grotte.'},
+    {lat:36.9676, lon:15.2611, type:'Fondale ciottoloso', desc:'Ciottoli di medie dimensioni.'},
+    {lat:36.9722, lon:15.2680, type:'Fondale melmoso', desc:'Baia del porticciolo, fondo melmoso.'}
   ];
 
   // Confini ufficiali Zona A (Riserva Integrale) AMP Plemmirio — Decreto 15/09/2004
@@ -488,6 +557,7 @@
       document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
       document.getElementById('screen-'+target).classList.add('active');
       if(target === 'mappa'){ setTimeout(function(){ if(state.map) state.map.invalidateSize(); }, 60); }
+      if(target === 'pesca'){ renderSpeciesGrid(); }
       if(target === 'meteo' && !state.weatherLoaded){ loadWeather(); }
       if(target === 'diario'){ renderCatches(); }
     });
@@ -517,13 +587,14 @@
     });
 
     drawZones();
+    drawSeabed();
     renderSpotMarkers();
 
     var portMarker = L.marker([PORT_LAT, PORT_LON], {icon: portIcon()}).addTo(state.map);
     portMarker.bindPopup('<b>Porto di Ognina</b><br><span style="color:#5C7A8A">Casa di Fabio Brogi ⚓</span>');
 
     var group = L.featureGroup(state.zoneLayers.concat([portMarker]));
-    try{ state.map.fitBounds(group.getBounds(), {padding:[24,24]}); }catch(e){}
+    try{ state.map.fitBounds(group.getBounds(), {padding:[36,36], maxZoom:13}); }catch(e){}
   }
 
   function portIcon(){
@@ -573,6 +644,32 @@
     drawZones();
   });
 
+  function seabedIcon(){
+    return L.divIcon({
+      className:'',
+      html:'<div style="width:11px;height:11px;background:#8B7355;border:2px solid #0A1626;transform:rotate(45deg);box-shadow:0 0 0 1px rgba(139,115,85,0.4)"></div>',
+      iconSize:[11,11],
+      iconAnchor:[6,6]
+    });
+  }
+
+  function drawSeabed(){
+    state.seabedLayers.forEach(function(l){ state.map.removeLayer(l); });
+    state.seabedLayers = [];
+    if(!state.seabedVisible) return;
+    SEABED_POINTS.forEach(function(p){
+      var m = L.marker([p.lat, p.lon], {icon: seabedIcon()}).addTo(state.map);
+      m.bindPopup('<b>'+escapeHtml(p.type)+'</b><br><span style="color:#5C7A8A">'+escapeHtml(p.desc)+'</span><br><span style="color:#5C7A8A;font-size:11px">Punto indicativo, non rilevato via GPS.</span>');
+      state.seabedLayers.push(m);
+    });
+  }
+
+  document.getElementById('toggleSeabedBtn').addEventListener('click', function(){
+    state.seabedVisible = !state.seabedVisible;
+    this.classList.toggle('toggle-on', state.seabedVisible);
+    drawSeabed();
+  });
+
   document.querySelectorAll('.zone-row').forEach(function(row){
     row.addEventListener('click', function(){
       var zi = parseInt(row.getAttribute('data-zone'),10);
@@ -587,6 +684,53 @@
       var target = ZONES.length-1-zi;
       try{ state.map.fitBounds(state.zoneLayers[target].getBounds(), {padding:[20,20]}); }catch(e){}
     }
+  }
+
+  // ---------- PESCA (guida per specie) ----------
+  function renderSpeciesGrid(){
+    var grid = document.getElementById('speciesGrid');
+    if(grid.children.length) return; // già renderizzata
+    SPECIES.forEach(function(sp, i){
+      var card = document.createElement('button');
+      card.className = 'species-card';
+      var zoneNames = sp.zones.map(function(zi){ return ZONES[zi].name; }).join(' · ');
+      card.innerHTML = '<div class="sp-icon">'+sp.icon+'</div><div class="sp-name">'+escapeHtml(sp.name)+'</div><div class="sp-zone">'+escapeHtml(zoneNames)+'</div>';
+      card.addEventListener('click', function(){
+        document.querySelectorAll('.species-card').forEach(function(c){ c.classList.remove('active'); });
+        card.classList.add('active');
+        showSpeciesDetail(sp);
+      });
+      grid.appendChild(card);
+    });
+  }
+
+  function showSpeciesDetail(sp){
+    var det = document.getElementById('speciesDetail');
+    var zoneNames = sp.zones.map(function(zi){ return ZONES[zi].name; }).join(' · ');
+    det.style.display = 'block';
+    det.innerHTML =
+      '<div style="font-family:var(--font-display);font-weight:600;font-size:15px">'+sp.icon+' '+escapeHtml(sp.name)+'</div>' +
+      '<div style="font-family:var(--font-mono);font-size:11px;color:var(--steel);margin-top:4px">Taglia minima: '+escapeHtml(sp.minSize)+'</div>' +
+      '<div style="font-size:13px;color:var(--foam);margin-top:10px;line-height:1.55">'+escapeHtml(sp.note)+'</div>' +
+      '<button class="primary-btn" style="margin-top:14px;margin-bottom:0" id="goToZoneBtn">📍 Mostra '+escapeHtml(zoneNames)+' in mappa</button>';
+    document.getElementById('goToZoneBtn').addEventListener('click', function(){
+      document.querySelector('.nav-btn[data-screen="mappa"]').click();
+      setTimeout(function(){ highlightZones(sp.zones); }, 120);
+    });
+  }
+
+  function highlightZones(zoneIndices){
+    if(!state.zonesVisible){ document.getElementById('toggleZonesBtn').click(); }
+    var bounds = null;
+    zoneIndices.forEach(function(zi){
+      var layerIdx = ZONES.length-1-zi;
+      var layer = state.zoneLayers[layerIdx];
+      if(!layer) return;
+      layer.setStyle({weight:3, opacity:1, fillOpacity:0.28});
+      bounds = bounds ? bounds.extend(layer.getBounds()) : L.latLngBounds(layer.getBounds().getSouthWest(), layer.getBounds().getNorthEast());
+      setTimeout(function(){ layer.setStyle({weight:1, opacity:0.55, fillOpacity:0.13}); }, 4000);
+    });
+    if(bounds && state.map){ try{ state.map.fitBounds(bounds, {padding:[24,24]}); }catch(e){} }
   }
 
   function spotIcon(){
@@ -676,7 +820,11 @@
     document.getElementById('catchNotes').value = '';
     document.getElementById('catchDate').value = new Date().toISOString().slice(0,10);
     populateSpotSelect();
+    document.getElementById('tunaWarning').style.display = 'none';
     document.getElementById('catchModal').classList.add('open');
+  });
+  document.getElementById('catchSpecies').addEventListener('change', function(){
+    document.getElementById('tunaWarning').style.display = (this.value === 'Tonno rosso') ? 'block' : 'none';
   });
   document.getElementById('catchCancel').addEventListener('click', function(){
     document.getElementById('catchModal').classList.remove('open');
